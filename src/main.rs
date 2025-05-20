@@ -1,11 +1,13 @@
 use std::{
     fs::{self, read_dir},
+    io::Error,
     path::{Path, PathBuf},
+    process,
 };
 
 // Extensions to look out for
 // synctex.gz is handled separte
-const EXTS: [&str; 18] = [
+const EXTS: [&str; 20] = [
     "aux",
     "bbl",
     "blg",
@@ -24,32 +26,40 @@ const EXTS: [&str; 18] = [
     "toc",
     "fdb_latexmk",
     "fls",
+    "synctex",
+    "synctex(busy)",
 ];
 
 fn is_tex_aux<T: AsRef<Path>>(path: &T) -> bool {
     // println!("checking path {}", path.as_ref().display());
-    let ext = match path.as_ref().extension() {
+    let pathref = path.as_ref();
+    let ext = match pathref.extension() {
         Some(x) => x,
         None => return false,
     }
     .to_str()
-    .expect("BUG: Problem OsStr to str for paht {path.as_ref().display()}");
+    .expect(&format!(
+        "BUG: Problem OsStr to str for path {}",
+        pathref.display()
+    ));
 
     EXTS.contains(&ext)
-        || path
-            .as_ref()
+        || pathref
             .to_str()
             .expect(&format!(
                 "BUG: Problem OsStr to str for path {:}",
-                path.as_ref().display()
+                pathref.display()
             ))
-            .ends_with(r#"synctex.gz"#) //TODO: remove unwrap
+            .contains(r#"synctex.gz"#) //TODO: remove unwrap
 }
 
 fn process_dir<T: AsRef<Path>>(fld: T) -> Vec<PathBuf> {
     println!("Processing directory {}", fld.as_ref().display());
-    let files = read_dir(fld)
-        .expect("error reading directory")
+    let files = read_dir(&fld)
+        .expect(&format!(
+            "error reading directory for {}",
+            fld.as_ref().display()
+        ))
         .filter_map(|res| res.ok())
         .map(|entry| entry.path())
         .filter(|path| path.is_file() && is_tex_aux(&path))
@@ -62,9 +72,10 @@ fn process_file<T: AsRef<Path>>(path: T) -> Vec<PathBuf> {
     let fld = path.as_ref();
     let pardir = match fld.extension() {
         Some(x) => match x.to_str() {
-            Some("tex") | Some("pdf") => fld
-                .parent()
-                .expect("Cannot get parent directory for {fld.display()}"),
+            Some("tex") | Some("pdf") => fld.parent().expect(&format!(
+                "Cannot get parent directory for {}",
+                fld.display()
+            )),
             _ => {
                 panic!("input must a directory, tex, or pdf file");
             }
@@ -102,34 +113,50 @@ fn process_file<T: AsRef<Path>>(path: T) -> Vec<PathBuf> {
     files
 }
 
-fn delete_files(tempfiles: Vec<PathBuf>) {
+fn process_path(fld: PathBuf) -> Result<Vec<PathBuf>, std::io::Error> {
+    let isdir = match fld.try_exists() {
+        Ok(true) => Ok(fld.is_dir()),
+        Ok(false) => Err(Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("No file or directory with path {}", &fld.display()),
+        )),
+        Err(e) => Err(e),
+    };
+    match isdir? {
+        true => Ok(process_dir(fld)),
+        false => Ok(process_file(fld)),
+    }
+}
+
+fn delete_files(tempfiles: Vec<PathBuf>) -> Result<(), std::io::Error> {
     if tempfiles.is_empty() {
         println!("Nothing to do");
-        return;
+        return Ok(());
     }
     for fl in tempfiles {
         println!("Removing File: {}", fl.display());
-        fs::remove_file(fl).expect("someting went wrong when deleting {fl:?}")
+        fs::remove_file(&fl)?
     }
+
+    Ok(())
 }
+
 fn main() {
     let fld = PathBuf::from(std::env::args().nth(1).unwrap_or(".".into()));
 
-    let _ = fld
-        .try_exists()
-        .expect("Couldn't verify if this exists")
-        .then(|| 1)
-        .ok_or("Doesnt exist");
-
-    let isdir = match fld.try_exists() {
-        Ok(true) => fld.is_dir(),
-        Ok(false) => panic!("No such file or directory"),
-        Err(_) => panic!("Couldnt verify if file exists"),
-    };
-    let tempfiles = match isdir {
-        true => process_dir(fld),
-        false => process_file(fld),
+    let tempfiles = match process_path(fld) {
+        Ok(pathvec) => pathvec,
+        Err(e) => {
+            eprintln!("{}", e);
+            process::exit(1)
+        }
     };
 
-    delete_files(tempfiles);
+    match delete_files(tempfiles) {
+        Ok(()) => (),
+        Err(e) => {
+            eprintln!("Problem when deleting files {}", e);
+            process::exit(1)
+        }
+    }
 }
