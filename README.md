@@ -1,4 +1,4 @@
-# texclean-rs
+# latex-clean-rs
 
 This command line tool has a single purpose: removing latex temporary files.
 It is basically the rust port of a shell script written by Danica Sutherland (see [below](#This-program-could-have-been-a-shell-script))
