@@ -4,7 +4,7 @@ This command line tool has a single purpose: removing latex temporary files.
 It is basically the rust port of a shell script written by Danica Sutherland (see [below](#This-program-could-have-been-a-shell-script))
 
 > [!CAUTION]
-> This project is still in development
+> This project is still in development (mostly because each function isn't unit tested yet), but I do personally use it, and it has replaced the shell script I used for years.
 
 # Usage
 
