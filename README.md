@@ -6,10 +6,16 @@ It is basically the rust port of a shell script written by Danica Sutherland (se
 > [!CAUTION]
 > This project is still in development (mostly because each function isn't unit tested yet), but I do personally use it, and it has replaced the shell script I used for years.
 
+# Installation
+
+Install directly from GitHub using Cargo:
+```sh
+cargo install --git https://github.com/ajinkya-k/latex-clean-rs
+```
+
 # Usage
 
 Simply run the following on the command line:
-
 ```bash
 latex-clean <path>
 ```
