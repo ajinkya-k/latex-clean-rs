@@ -8,3 +8,4 @@ target/
 # tex files used for testing
 **/*.tex
 **/*.pdf
+.scratch
