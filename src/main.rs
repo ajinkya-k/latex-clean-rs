@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use std::{
     fs::{self, read_dir},
     io::Error,
